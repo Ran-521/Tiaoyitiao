@@ -326,27 +326,43 @@
             try {
                 const audio = new Audio();
                 
+                // 添加静音提示
+                const audioSection = document.querySelector('.test-section:nth-child(4)');
+                const muteNotice = document.createElement('div');
+                muteNotice.style.color = '#ff6b6b';
+                muteNotice.style.fontWeight = 'bold';
+                muteNotice.style.padding = '10px 0';
+                muteNotice.textContent = '音频系统当前处于静音模式，所有音频功能已禁用。';
+                audioSection.insertBefore(muteNotice, audioSection.querySelector('.control-panel'));
+                
                 document.getElementById('test-jump-sound-btn').addEventListener('click', () => {
-                    audio.playSound('jump');
-                    log('audio-log', '播放跳跃音效');
+                    // 音频已禁用，只添加日志
+                    log('audio-log', '播放跳跃音效 (已静音)');
                 });
                 
                 document.getElementById('test-land-sound-btn').addEventListener('click', () => {
-                    audio.playSound('land');
-                    log('audio-log', '播放落地音效');
+                    // 音频已禁用，只添加日志
+                    log('audio-log', '播放落地音效 (已静音)');
                 });
                 
                 document.getElementById('test-game-over-sound-btn').addEventListener('click', () => {
-                    audio.playSound('gameover');
-                    log('audio-log', '播放游戏结束音效');
+                    // 音频已禁用，只添加日志
+                    log('audio-log', '播放游戏结束音效 (已静音)');
                 });
                 
                 document.getElementById('test-music-btn').addEventListener('click', () => {
-                    audio.playBackgroundMusic();
-                    log('audio-log', '播放背景音乐');
+                    // 音频已禁用，只添加日志
+                    log('audio-log', '播放背景音乐 (已静音)');
                 });
                 
-                log('audio-log', '音频测试初始化完成');
+                log('audio-log', '音频测试初始化完成 (静音模式)');
+                
+                // 禁用所有音频测试按钮
+                const buttons = document.querySelectorAll('.test-section:nth-child(4) button');
+                buttons.forEach(button => {
+                    button.style.backgroundColor = '#aaaaaa';
+                    button.title = '音频系统处于静音模式';
+                });
             } catch (e) {
                 log('audio-log', `音频初始化失败: ${e.message}`);
             }
