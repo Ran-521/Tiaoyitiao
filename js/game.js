@@ -194,7 +194,7 @@ class Game {
                 // 更新蓄力条
                 if (this.isPoweringUp) {
                     const elapsedTime = currentTime - this.powerStartTime;
-                    this.powerLevel = Math.min(elapsedTime / this.maxPowerTime, 1);
+                    this.powerLevel = Math.min(elapsedTime / this.maxPowerTime, 1.0);
                     this.updatePowerBar();
                 }
                 
@@ -203,6 +203,9 @@ class Game {
                 
                 // 绘制游戏元素
                 this.draw();
+                
+                // 确保玩家和平台数据是正常的
+                this.validateGameState();
             }
             
             // 请求下一帧
@@ -212,8 +215,31 @@ class Game {
         } catch (error) {
             console.error('游戏循环中发生错误:', error);
             console.error('错误详情:', error.stack);
-            // 尝试继续运行游戏循环
-            this.animationFrame = requestAnimationFrame((time) => this.gameLoop(time));
+            // 尝试继续运行游戏循环，但避免无限递归错误
+            if (this.state !== GameState.GAME_OVER) {
+                this.animationFrame = requestAnimationFrame((time) => this.gameLoop(time));
+            }
+        }
+    }
+    
+    // 验证游戏状态，确保数据正常
+    validateGameState() {
+        try {
+            // 检查玩家
+            if (!this.player) {
+                console.error('玩家对象不存在，重置游戏');
+                this.resetGame();
+                return;
+            }
+            
+            // 检查平台
+            if (!this.platforms || this.platforms.length < 2) {
+                console.error('平台数据异常，重置游戏');
+                this.resetGame();
+                return;
+            }
+        } catch (error) {
+            console.error('验证游戏状态时发生错误:', error);
         }
     }
     
@@ -226,39 +252,203 @@ class Game {
                 
                 // 检查玩家是否在跳跃中
                 if (this.player.isJumping) {
-                    // 如果玩家落地
+                    // 如果玩家落地或超过目标位置
                     if (this.player.velocity.y > 0 && this.player.position.y >= this.player.targetY) {
-                        console.log(`玩家接近落地点: 当前Y=${this.player.position.y.toFixed(2)}, 目标Y=${this.player.targetY.toFixed(2)}`);
+                        console.log(`====== 玩家落地过程开始 ======`);
+                        console.log(`玩家状态: Y坐标=${this.player.position.y.toFixed(2)}, 目标Y=${this.player.targetY.toFixed(2)}, Y速度=${this.player.velocity.y.toFixed(2)}`);
                         
-                        // 玩家落在平台上
-                        if (this.isPlayerOnPlatform()) {
-                            console.log("玩家成功落在平台上！");
+                        // 1. 首先确保玩家Y坐标不会明显超过目标值
+                        if (this.player.position.y > this.player.targetY + 5) {
+                            console.log(`修正玩家Y坐标: ${this.player.position.y.toFixed(2)} → ${this.player.targetY.toFixed(2)}`);
+                            this.player.position.y = this.player.targetY;
+                        }
+                        
+                        // 2. 记录和输出当前关键信息以供调试
+                        if (this.platforms && this.platforms.length > 0) {
+                            const platform = this.platforms[0];
+                            console.log(`目标平台: X=${platform.x.toFixed(2)}, Y=${platform.y.toFixed(2)}, 宽=${platform.width}, 高=${platform.height}`);
                             
-                            this.player.land();
-                            this.score++;
+                            const distanceToCenter = Math.abs(this.player.position.x - platform.x);
+                            const platformHalfWidth = platform.width / 2;
+                            console.log(`玩家距平台中心: ${distanceToCenter.toFixed(2)}, 平台半宽: ${platformHalfWidth}`);
+                            console.log(`水平偏差率: ${(distanceToCenter / platformHalfWidth * 100).toFixed(1)}% (100%以内为成功)`);
+                        }
+                        
+                        // 3. 执行落地判定
+                        console.log('执行落地判定...');
+                        const landedOnPlatform = this.isPlayerOnPlatform();
+                        
+                        // 4. 根据落地判定结果处理游戏状态
+                        if (landedOnPlatform) {
+                            console.log("【成功】玩家成功落在平台上！游戏继续...");
+                            
+                            // 播放成功音效并更新玩家状态
                             this.audio.playSound('land');
+                            this.player.land();
                             
-                            // 移除旧平台并生成新平台
+                            // 更新游戏状态
+                            this.score++;
+                            this.updateScoreDisplay();
+                            
+                            // 生成新平台并处理视角
                             this.platforms.shift();
                             this.generateNextPlatform();
-                            
-                            // 增加难度
+                            this.adjustViewport();
                             this.increaseDifficulty();
-                            
-                            // 更新分数显示
-                            this.updateScoreDisplay();
                         } else {
                             // 玩家未落在平台上，游戏结束
-                            console.log("玩家未落在平台上，游戏结束");
-                            this.gameOver();
+                            console.log("【失败】玩家未落在平台上，游戏结束");
+                            
+                            // 添加一小段延迟，让玩家看到落空的过程
+                            setTimeout(() => {
+                                this.gameOver();
+                            }, 300);
                         }
+                        
+                        console.log(`====== 玩家落地过程结束 ======`);
+                        return; // 落地处理完成，退出当前更新周期
+                    }
+                    
+                    // 检查玩家是否掉出屏幕底部
+                    if (this.player.position.y > this.canvas.height + 100) {
+                        console.log('玩家掉出屏幕底部，游戏结束');
+                        this.gameOver();
+                        return;
                     }
                 }
+                
+                // 检查玩家是否超出屏幕范围，如果是则调整视角
+                this.checkPlayerInView();
             } else {
                 console.error('玩家对象不存在!');
             }
         } catch (error) {
             console.error('更新游戏逻辑时发生错误:', error);
+            console.error('错误详情:', error.stack);
+        }
+    }
+    
+    // 新增方法：检查玩家是否在视野内
+    checkPlayerInView() {
+        try {
+            if (!this.player) return;
+            
+            const margin = 50; // 边缘安全距离
+            const leftEdge = margin;
+            const rightEdge = this.canvas.width - margin;
+            
+            // 如果玩家接近屏幕边缘，调整视角
+            if (this.player.position.x < leftEdge || this.player.position.x > rightEdge) {
+                console.log(`玩家超出视野范围: x=${this.player.position.x.toFixed(2)}`);
+                this.adjustViewport();
+            }
+        } catch (error) {
+            console.error('检查玩家视野时发生错误:', error);
+        }
+    }
+    
+    // 检查玩家是否落在平台上
+    isPlayerOnPlatform() {
+        try {
+            // 基础检查：确保平台和玩家对象存在
+            if (!this.platforms || this.platforms.length === 0) {
+                console.error('没有可用平台进行检测!');
+                return false;
+            }
+            
+            const platform = this.platforms[0];
+            if (!platform) {
+                console.error('平台对象不存在!');
+                return false;
+            }
+            
+            if (!this.player) {
+                console.error('玩家对象不存在!');
+                return false;
+            }
+            
+            // 获取关键坐标和尺寸
+            const playerX = this.player.position.x;
+            const playerY = this.player.position.y;
+            const playerRadius = this.player.width / 2; // 玩家是圆形，所以使用半径
+            
+            const platformX = platform.x;
+            const platformY = platform.y;
+            const platformWidth = platform.width;
+            const platformHeight = platform.height;
+            
+            // 详细的调试日志
+            console.log('==== 落地检测详细信息 ====');
+            console.log(`玩家坐标: (${playerX.toFixed(2)}, ${playerY.toFixed(2)}), 半径: ${playerRadius}`);
+            console.log(`平台坐标: (${platformX.toFixed(2)}, ${platformY.toFixed(2)}), 尺寸: ${platformWidth}x${platformHeight}`);
+            
+            // 计算平台的边界
+            const platformLeft = platformX - platformWidth / 2;
+            const platformRight = platformX + platformWidth / 2;
+            const platformTop = platformY - platformHeight / 2;
+            const platformBottom = platformY + platformHeight / 2;
+            
+            console.log(`平台边界: 左=${platformLeft.toFixed(2)}, 右=${platformRight.toFixed(2)}, 上=${platformTop.toFixed(2)}, 下=${platformBottom.toFixed(2)}`);
+            
+            // 水平方向检测（考虑玩家半径）
+            const playerLeft = playerX - playerRadius;
+            const playerRight = playerX + playerRadius;
+            
+            // 使用不同的容错度进行判断
+            const strictTolerance = 5; // 严格容错度
+            const mediumTolerance = 10; // 中等容错度
+            const wideTolerance = 20; // 宽松容错度
+            
+            // 检查玩家是否在平台上方
+            const isAbovePlatform = Math.abs(playerY - platformTop) <= (playerRadius + mediumTolerance);
+            
+            // 检查玩家是否在平台水平范围内（考虑不同的容错度）
+            const isStrictlyOnPlatform = playerRight >= platformLeft && playerLeft <= platformRight;
+            const isOnPlatformWithMediumTolerance = playerRight + mediumTolerance >= platformLeft && playerLeft - mediumTolerance <= platformRight;
+            const isOnPlatformWithWideTolerance = playerRight + wideTolerance >= platformLeft && playerLeft - wideTolerance <= platformRight;
+            
+            // 计算玩家中心到平台中心的水平距离
+            const horizontalDistance = Math.abs(playerX - platformX);
+            const maxAllowedDistance = (platformWidth / 2) + playerRadius + wideTolerance;
+            
+            console.log(`玩家水平范围: 左=${playerLeft.toFixed(2)}, 右=${playerRight.toFixed(2)}`);
+            console.log(`水平距离: ${horizontalDistance.toFixed(2)}, 最大允许距离: ${maxAllowedDistance.toFixed(2)}`);
+            console.log(`严格判定: ${isStrictlyOnPlatform}, 中等容错: ${isOnPlatformWithMediumTolerance}, 宽松容错: ${isOnPlatformWithWideTolerance}`);
+            console.log(`在平台上方: ${isAbovePlatform}`);
+            
+            // 最终判定逻辑
+            let landingSuccess = false;
+            
+            // 1. 严格判定 - 完全在平台上，必定成功
+            if (isStrictlyOnPlatform) {
+                landingSuccess = true;
+                console.log('判定结果: 严格成功 - 玩家完全在平台范围内');
+            }
+            // 2. 中等容错 - 接近平台边缘，高概率成功
+            else if (isOnPlatformWithMediumTolerance) {
+                const successChance = 0.9; // 90%的成功率
+                landingSuccess = Math.random() < successChance;
+                console.log(`判定结果: 中等容错 - 接近平台边缘 (${successChance * 100}%成功率) => ${landingSuccess ? '成功' : '失败'}`);
+            }
+            // 3. 宽松容错 - 在平台扩展范围内，低概率成功
+            else if (isOnPlatformWithWideTolerance) {
+                const successChance = 0.3; // 30%的成功率
+                landingSuccess = Math.random() < successChance;
+                console.log(`判定结果: 宽松容错 - 在扩展范围内 (${successChance * 100}%成功率) => ${landingSuccess ? '成功' : '失败'}`);
+            }
+            // 4. 完全脱离平台
+            else {
+                console.log('判定结果: 失败 - 玩家完全脱离平台范围');
+            }
+            
+            console.log(`最终落地判定: ${landingSuccess ? '成功' : '失败'}`);
+            console.log('==== 落地检测结束 ====');
+            
+            return landingSuccess;
+        } catch (error) {
+            console.error('检查玩家是否在平台上时发生错误:', error);
+            console.error('错误堆栈:', error.stack);
+            return false; // 发生错误时判定失败
         }
     }
     
@@ -328,16 +518,48 @@ class Game {
             const targetPlatform = this.platforms[1];
             const distanceX = targetPlatform.x - this.player.position.x;
             
-            // 根据跳跃力度计算距离，添加一些随机性
-            const randomFactor = 0.95 + Math.random() * 0.1; // 0.95-1.05的随机因子
-            const jumpDistance = distanceX * jumpPower * randomFactor;
+            // 跳跃距离计算 - 更加宽松但仍保持挑战性
+            let jumpDistance;
             
-            // 计算跳跃高度，力度越大，跳跃越高
-            const jumpHeight = -300 * jumpPower; // 负值，因为y轴向下为正
+            // 根据蓄力程度，给玩家一个合理的机会
+            if (jumpPower < 0.3) {
+                // 低蓄力时也有60%的机会成功
+                jumpDistance = distanceX * (0.6 + jumpPower * 0.2);
+                console.log("蓄力较弱，但仍有机会到达");
+            } else if (jumpPower > 0.9) {
+                // 高蓄力时，有10%的机会跳过头，但大部分情况下是成功的
+                const overshootChance = Math.random();
+                if (overshootChance < 0.1) {
+                    jumpDistance = distanceX * 1.15; // 跳过头
+                    console.log("蓄力过大，跳过头了");
+                } else {
+                    jumpDistance = distanceX * 0.95; // 几乎完美命中
+                    console.log("蓄力充足，几乎完美命中");
+                }
+            } else if (jumpPower >= 0.6 && jumpPower <= 0.8) {
+                // 黄金区间，精确命中
+                jumpDistance = distanceX * (0.98 + Math.random() * 0.04);
+                console.log("完美蓄力！精确命中目标");
+            } else {
+                // 其他蓄力程度，根据力度线性插值，有80%的成功率
+                const baseAccuracy = 0.8 + (jumpPower * 0.15);
+                jumpDistance = distanceX * baseAccuracy;
+                console.log("普通蓄力，有较高成功率");
+            }
             
-            console.log(`跳跃目标计算: 目标距离=${distanceX.toFixed(2)}, 实际跳跃距离=${jumpDistance.toFixed(2)}, 跳跃高度=${jumpHeight.toFixed(2)}`);
+            // 计算跳跃高度
+            const minHeight = -180;
+            const maxHeight = -320;
+            const jumpHeight = minHeight + (maxHeight - minHeight) * jumpPower;
             
-            // 玩家跳跃
+            // 详细日志
+            console.log(`跳跃详细计算:`);
+            console.log(`- 目标平台距离: ${distanceX.toFixed(2)}像素`);
+            console.log(`- 计算跳跃距离: ${jumpDistance.toFixed(2)}像素 (${(jumpDistance/distanceX*100).toFixed(1)}% 准确度)`);
+            console.log(`- 预计落点: ${(this.player.position.x + jumpDistance).toFixed(2)}`);
+            console.log(`- 目标平台位置: ${targetPlatform.x} ±${targetPlatform.width/2} (${targetPlatform.x - targetPlatform.width/2} 到 ${targetPlatform.x + targetPlatform.width/2})`);
+            
+            // 开始跳跃
             this.player.jump(jumpDistance, jumpHeight, targetPlatform.y);
             
             // 播放跳跃音效
@@ -365,59 +587,72 @@ class Game {
         }
     }
     
-    // 检查玩家是否落在平台上
-    isPlayerOnPlatform() {
+    // 生成下一个平台
+    generateNextPlatform() {
         try {
-            const platform = this.platforms[0];
-            if (!platform) {
-                console.error('平台对象不存在!');
-                return false;
+            const lastPlatform = this.platforms[this.platforms.length - 1];
+            if (!lastPlatform) {
+                console.error('无法生成下一个平台：没有前一个平台');
+                return;
             }
             
-            // 调试信息
-            console.log(`检查落地位置: 玩家X=${this.player.position.x.toFixed(2)}, 平台X=${platform.x.toFixed(2)}, 平台宽度=${platform.width}`);
-            console.log(`平台范围: ${(platform.x - platform.width / 2).toFixed(2)} 到 ${(platform.x + platform.width / 2).toFixed(2)}`);
+            // 计算距离（随难度增加）
+            const distance = this.minDistance + Math.random() * (this.maxDistance - this.minDistance);
             
-            // 增加一点容错度，使游戏更友好
-            const tolerance = 5; // 5像素的容错度
-            const onPlatform = (
-                this.player.position.x >= platform.x - platform.width / 2 - tolerance &&
-                this.player.position.x <= platform.x + platform.width / 2 + tolerance
-            );
+            // 计算新平台位置
+            const x = lastPlatform.x + distance;
+            const y = lastPlatform.y + (Math.random() * 80 - 40); // 随机高度变化
             
-            console.log(`落地判定结果: ${onPlatform ? '成功' : '失败'}`);
-            return onPlatform;
+            // 计算平台宽度（随难度减小）
+            const width = Math.max(30, 80 - this.difficulty * 5);
+            
+            // 创建新平台
+            const newPlatform = new Platform(x, y, width, 20);
+            this.platforms.push(newPlatform);
+            
+            console.log(`生成新平台: x=${x.toFixed(2)}, y=${y.toFixed(2)}, 宽度=${width}`);
+            
+            // 调整视角（移动所有元素）- 确保每次都正确调整
+            this.adjustViewport();
         } catch (error) {
-            console.error('检查玩家是否在平台上时发生错误:', error);
-            return false;
+            console.error('生成下一个平台时发生错误:', error);
+            console.error('错误详情:', error.stack);
         }
     }
     
-    // 生成下一个平台
-    generateNextPlatform() {
-        const lastPlatform = this.platforms[this.platforms.length - 1];
-        
-        // 计算距离（随难度增加）
-        const distance = this.minDistance + Math.random() * (this.maxDistance - this.minDistance);
-        
-        // 计算新平台位置
-        const x = lastPlatform.x + distance;
-        const y = lastPlatform.y + (Math.random() * 80 - 40); // 随机高度变化
-        
-        // 计算平台宽度（随难度减小）
-        const width = Math.max(30, 80 - this.difficulty * 5);
-        
-        // 创建新平台
-        const newPlatform = new Platform(x, y, width, 20);
-        this.platforms.push(newPlatform);
-        
-        // 调整视角（移动所有元素）
-        if (this.platforms.length > 2) {
-            const moveX = this.platforms[0].x - this.canvas.width / 4;
-            this.platforms.forEach(platform => {
-                platform.x -= moveX;
-            });
-            this.player.position.x -= moveX;
+    // 新增方法：调整视角，确保玩家始终在视野中
+    adjustViewport() {
+        try {
+            if (!this.platforms || this.platforms.length < 1 || !this.player) {
+                console.warn('无法调整视角：缺少必要的游戏元素');
+                return;
+            }
+            
+            // 确保第一个平台位于屏幕左侧1/4处
+            const desiredFirstPlatformX = this.canvas.width / 4;
+            
+            // 计算需要水平偏移的距离
+            const currentFirstPlatform = this.platforms[0];
+            const moveX = currentFirstPlatform.x - desiredFirstPlatformX;
+            
+            // 只有当需要移动的距离足够大时才移动
+            if (Math.abs(moveX) > 5) {
+                console.log(`调整视角: 当前第一个平台位置=${currentFirstPlatform.x.toFixed(2)}, 目标位置=${desiredFirstPlatformX.toFixed(2)}`);
+                console.log(`需要移动距离: ${moveX.toFixed(2)}`);
+                
+                // 移动所有平台
+                this.platforms.forEach(platform => {
+                    platform.x -= moveX;
+                });
+                
+                // 同时移动玩家以保持相对位置
+                this.player.position.x -= moveX;
+                
+                console.log(`视角调整完成: 所有元素左移${moveX.toFixed(2)}像素`);
+            }
+        } catch (error) {
+            console.error('调整视角时发生错误:', error);
+            console.error('错误详情:', error.stack);
         }
     }
     
