@@ -114,6 +114,8 @@ class Game {
             console.log('游戏初始化完成！显示开始屏幕');
             // 确保显示开始屏幕
             this.ui.showScreen('start-screen');
+            
+            // 注意：我们不在初始化时播放背景音乐，而是等待游戏开始
         } catch (error) {
             console.error('游戏初始化失败：', error);
         }
@@ -166,7 +168,8 @@ class Game {
             }
             this.gameLoop(this.lastTime);
             
-            // 播放背景音乐
+            // 仅在游戏实际开始后播放背景音乐
+            console.log('开始播放背景音乐...');
             this.audio.playBackgroundMusic();
             
             console.log('游戏已成功启动！');
@@ -225,8 +228,12 @@ class Game {
                 if (this.player.isJumping) {
                     // 如果玩家落地
                     if (this.player.velocity.y > 0 && this.player.position.y >= this.player.targetY) {
+                        console.log(`玩家接近落地点: 当前Y=${this.player.position.y.toFixed(2)}, 目标Y=${this.player.targetY.toFixed(2)}`);
+                        
                         // 玩家落在平台上
                         if (this.isPlayerOnPlatform()) {
+                            console.log("玩家成功落在平台上！");
+                            
                             this.player.land();
                             this.score++;
                             this.audio.playSound('land');
@@ -242,6 +249,7 @@ class Game {
                             this.updateScoreDisplay();
                         } else {
                             // 玩家未落在平台上，游戏结束
+                            console.log("玩家未落在平台上，游戏结束");
                             this.gameOver();
                         }
                     }
@@ -298,7 +306,12 @@ class Game {
             this.audio.playSound('charge');
             
             // 显示蓄力条
-            document.getElementById('power-bar-container').style.display = 'block';
+            const powerBarContainer = document.getElementById('power-bar-container');
+            if (powerBarContainer) {
+                powerBarContainer.style.display = 'block';
+            }
+            
+            console.log('开始蓄力跳跃...');
         }
     }
     
@@ -308,13 +321,21 @@ class Game {
             this.isPoweringUp = false;
             
             // 计算跳跃强度
-            const jumpPower = this.powerLevel;
+            const jumpPower = Math.max(0.2, Math.min(this.powerLevel, 1.0)); // 确保有最小跳跃力度
+            console.log(`蓄力结束，跳跃力度: ${jumpPower.toFixed(2)}`);
             
             // 计算目标距离和高度
             const targetPlatform = this.platforms[1];
             const distanceX = targetPlatform.x - this.player.position.x;
-            const jumpDistance = distanceX * jumpPower;
+            
+            // 根据跳跃力度计算距离，添加一些随机性
+            const randomFactor = 0.95 + Math.random() * 0.1; // 0.95-1.05的随机因子
+            const jumpDistance = distanceX * jumpPower * randomFactor;
+            
+            // 计算跳跃高度，力度越大，跳跃越高
             const jumpHeight = -300 * jumpPower; // 负值，因为y轴向下为正
+            
+            console.log(`跳跃目标计算: 目标距离=${distanceX.toFixed(2)}, 实际跳跃距离=${jumpDistance.toFixed(2)}, 跳跃高度=${jumpHeight.toFixed(2)}`);
             
             // 玩家跳跃
             this.player.jump(jumpDistance, jumpHeight, targetPlatform.y);
@@ -323,24 +344,53 @@ class Game {
             this.audio.playSound('jump');
             
             // 隐藏蓄力条
-            document.getElementById('power-bar-container').style.display = 'none';
-            document.getElementById('power-bar').style.height = '0%';
+            const powerBarContainer = document.getElementById('power-bar-container');
+            const powerBar = document.getElementById('power-bar');
+            
+            if (powerBarContainer) {
+                powerBarContainer.style.display = 'none';
+            }
+            
+            if (powerBar) {
+                powerBar.style.height = '0%';
+            }
         }
     }
     
     // 更新蓄力条显示
     updatePowerBar() {
         const powerBar = document.getElementById('power-bar');
-        powerBar.style.height = `${this.powerLevel * 100}%`;
+        if (powerBar) {
+            powerBar.style.height = `${this.powerLevel * 100}%`;
+        }
     }
     
     // 检查玩家是否落在平台上
     isPlayerOnPlatform() {
-        const platform = this.platforms[0];
-        return (
-            this.player.position.x >= platform.x - platform.width / 2 &&
-            this.player.position.x <= platform.x + platform.width / 2
-        );
+        try {
+            const platform = this.platforms[0];
+            if (!platform) {
+                console.error('平台对象不存在!');
+                return false;
+            }
+            
+            // 调试信息
+            console.log(`检查落地位置: 玩家X=${this.player.position.x.toFixed(2)}, 平台X=${platform.x.toFixed(2)}, 平台宽度=${platform.width}`);
+            console.log(`平台范围: ${(platform.x - platform.width / 2).toFixed(2)} 到 ${(platform.x + platform.width / 2).toFixed(2)}`);
+            
+            // 增加一点容错度，使游戏更友好
+            const tolerance = 5; // 5像素的容错度
+            const onPlatform = (
+                this.player.position.x >= platform.x - platform.width / 2 - tolerance &&
+                this.player.position.x <= platform.x + platform.width / 2 + tolerance
+            );
+            
+            console.log(`落地判定结果: ${onPlatform ? '成功' : '失败'}`);
+            return onPlatform;
+        } catch (error) {
+            console.error('检查玩家是否在平台上时发生错误:', error);
+            return false;
+        }
     }
     
     // 生成下一个平台
@@ -388,6 +438,9 @@ class Game {
             this.saveBestScore();
         }
         
+        // 停止背景音乐
+        this.audio.pauseBackgroundMusic();
+        
         // 播放游戏结束音效
         this.audio.playSound('gameover');
         
@@ -399,6 +452,10 @@ class Game {
     pauseGame() {
         if (this.state === GameState.PLAYING) {
             this.state = GameState.PAUSED;
+            
+            // 暂停背景音乐
+            this.audio.pauseBackgroundMusic();
+            
             cancelAnimationFrame(this.animationFrame);
             this.ui.showScreen('pause-menu');
         }
@@ -408,6 +465,10 @@ class Game {
     resumeGame() {
         if (this.state === GameState.PAUSED) {
             this.state = GameState.PLAYING;
+            
+            // 恢复背景音乐
+            this.audio.playBackgroundMusic();
+            
             this.lastTime = performance.now();
             this.gameLoop(this.lastTime);
             this.ui.showScreen('game-screen');

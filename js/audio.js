@@ -103,6 +103,7 @@ class Audio {
         // 简单的占位功能，实际游戏应加载真正的背景音乐
         this.backgroundMusic = {
             isPlaying: false,
+            loopInterval: null,
             
             play: () => {
                 if (this.musicEnabled && !this.backgroundMusic.isPlaying) {
@@ -117,6 +118,16 @@ class Audio {
             pause: () => {
                 console.log('背景音乐暂停');
                 this.backgroundMusic.isPlaying = false;
+                
+                // 清除可能存在的循环计时器
+                if (this.backgroundMusic.loopInterval) {
+                    clearTimeout(this.backgroundMusic.loopInterval);
+                    this.backgroundMusic.loopInterval = null;
+                }
+            },
+            
+            stop: () => {
+                this.backgroundMusic.pause();
             }
         };
     }
@@ -132,7 +143,8 @@ class Audio {
             const duration = 0.2;
             
             this.createPlaceholderAudio(note, duration, () => {
-                setTimeout(() => {
+                // 使用setTimeout而不是直接递归，防止调用栈溢出
+                this.backgroundMusic.loopInterval = setTimeout(() => {
                     if (this.backgroundMusic.isPlaying) {
                         this.playMusicLoop();
                     }

@@ -144,6 +144,7 @@ class Player {
                 
                 console.log(`玩家跳跃: 距离=${distanceX.toFixed(2)}, 高度=${jumpHeight.toFixed(2)}, 目标Y=${targetY.toFixed(2)}`);
                 console.log(`初始速度: x=${this.velocity.x.toFixed(2)}, y=${this.velocity.y.toFixed(2)}`);
+                console.log(`目标着陆Y坐标: ${this.targetY.toFixed(2)}`);
             }
         } catch (e) {
             console.error('执行跳跃时发生错误:', e);
@@ -156,7 +157,10 @@ class Player {
             this.isJumping = false;
             this.velocity.x = 0;
             this.velocity.y = 0;
+            
+            // 确保玩家位置精确设置到目标Y位置
             this.position.y = this.targetY;
+            
             console.log(`玩家已落地: x=${this.position.x.toFixed(2)}, y=${this.position.y.toFixed(2)}`);
         } catch (e) {
             console.error('玩家落地时发生错误:', e);
