@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>跳一跳 - 调试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4a69bd;
+            text-align: center;
+        }
+        h2 {
+            color: #4a69bd;
+            margin-top: 30px;
+        }
+        .test-section {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .test-canvas {
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            display: block;
+            margin: 10px 0;
+        }
+        .control-panel {
+            margin: 10px 0;
+        }
+        button {
+            background-color: #4a69bd;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #3c5899;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow: auto;
+            max-height: 200px;
+        }
+        .log {
+            height: 100px;
+            overflow-y: auto;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>跳一跳游戏 - 调试页面</h1>
+    
+    <div class="test-section">
+        <h2>玩家测试</h2>
+        <canvas id="player-canvas" class="test-canvas" width="500" height="300"></canvas>
+        <div class="control-panel">
+            <button id="player-jump-btn">测试跳跃</button>
+        </div>
+        <div id="player-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>平台测试</h2>
+        <canvas id="platform-canvas" class="test-canvas" width="500" height="300"></canvas>
+        <div class="control-panel">
+            <button id="add-platform-btn">添加平台</button>
+            <button id="clear-platforms-btn">清除平台</button>
+        </div>
+        <div id="platform-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>物理测试</h2>
+        <canvas id="physics-canvas" class="test-canvas" width="500" height="300"></canvas>
+        <div class="control-panel">
+            <button id="test-parabola-btn">测试抛物线</button>
+            <button id="test-collision-btn">测试碰撞</button>
+        </div>
+        <div id="physics-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>音频测试</h2>
+        <div class="control-panel">
+            <button id="test-jump-sound-btn">跳跃音效</button>
+            <button id="test-land-sound-btn">落地音效</button>
+            <button id="test-game-over-sound-btn">游戏结束音效</button>
+            <button id="test-music-btn">测试背景音乐</button>
+        </div>
+        <div id="audio-log" class="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>UI测试</h2>
+        <div class="control-panel">
+            <button id="test-start-screen-btn">显示开始屏幕</button>
+            <button id="test-game-screen-btn">显示游戏屏幕</button>
+            <button id="test-game-over-screen-btn">显示游戏结束屏幕</button>
+            <button id="test-ranking-screen-btn">显示排行榜屏幕</button>
+            <button id="test-settings-screen-btn">显示设置屏幕</button>
+            <button id="test-pause-menu-btn">显示暂停菜单</button>
+        </div>
+        <pre id="ui-elements"></pre>
+        <div id="ui-log" class="log"></div>
+    </div>
+    
+    <script src="js/physics.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/platform.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/ui.js"></script>
+    
+    <script>
+        // 工具函数：日志记录
+        function log(containerId, message) {
+            const container = document.getElementById(containerId);
+            const entry = document.createElement('div');
+            entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 玩家测试
+        (function() {
+            const canvas = document.getElementById('player-canvas');
+            const ctx = canvas.getContext('2d');
+            let player = new Player(canvas.width / 4, canvas.height / 2);
+            
+            function drawPlayerTest() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制参考线
+                ctx.strokeStyle = '#ccc';
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height / 2);
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.stroke();
+                
+                player.draw(ctx);
+            }
+            
+            document.getElementById('player-jump-btn').addEventListener('click', () => {
+                const jumpDistance = 200;
+                const jumpHeight = -150;
+                const targetY = canvas.height / 2 + 100;
+                
+                log('player-log', `玩家跳跃: 距离=${jumpDistance}, 高度=${jumpHeight}, 目标Y=${targetY}`);
+                player.jump(jumpDistance, jumpHeight, targetY);
+                
+                let lastTime = performance.now();
+                function animateJump(time) {
+                    const deltaTime = (time - lastTime) / 1000;
+                    lastTime = time;
+                    
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 绘制参考线
+                    ctx.strokeStyle = '#ccc';
+                    ctx.beginPath();
+                    ctx.moveTo(0, canvas.height / 2);
+                    ctx.lineTo(canvas.width, canvas.height / 2);
+                    ctx.stroke();
+                    
+                    // 绘制目标线
+                    ctx.strokeStyle = 'red';
+                    ctx.beginPath();
+                    ctx.moveTo(canvas.width / 4 + jumpDistance - 40, targetY);
+                    ctx.lineTo(canvas.width / 4 + jumpDistance + 40, targetY);
+                    ctx.stroke();
+                    
+                    player.update(deltaTime);
+                    player.draw(ctx);
+                    
+                    if (player.position.y >= targetY && player.velocity.y > 0) {
+                        player.land();
+                        log('player-log', '玩家已落地');
+                    } else if (player.isJumping) {
+                        requestAnimationFrame(animateJump);
+                    }
+                }
+                
+                requestAnimationFrame(animateJump);
+            });
+            
+            drawPlayerTest();
+            log('player-log', '玩家测试初始化完成');
+        })();
+        
+        // 平台测试
+        (function() {
+            const canvas = document.getElementById('platform-canvas');
+            const ctx = canvas.getContext('2d');
+            const platforms = [];
+            
+            function drawPlatforms() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                platforms.forEach(platform => platform.draw(ctx));
+            }
+            
+            document.getElementById('add-platform-btn').addEventListener('click', () => {
+                const x = 100 + Math.random() * (canvas.width - 200);
+                const y = 50 + Math.random() * (canvas.height - 100);
+                const width = 40 + Math.random() * 60;
+                const height = 15 + Math.random() * 10;
+                
+                const platform = new Platform(x, y, width, height);
+                platforms.push(platform);
+                
+                log('platform-log', `添加平台: x=${Math.round(x)}, y=${Math.round(y)}, width=${Math.round(width)}, height=${Math.round(height)}`);
+                drawPlatforms();
+            });
+            
+            document.getElementById('clear-platforms-btn').addEventListener('click', () => {
+                platforms.length = 0;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                log('platform-log', '已清除所有平台');
+            });
+            
+            // 初始化一个平台
+            const platform = new Platform(canvas.width / 2, canvas.height / 2, 80, 20);
+            platforms.push(platform);
+            drawPlatforms();
+            log('platform-log', '平台测试初始化完成');
+        })();
+        
+        // 物理测试
+        (function() {
+            const canvas = document.getElementById('physics-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            document.getElementById('test-parabola-btn').addEventListener('click', () => {
+                const startX = 50;
+                const startY = canvas.height - 50;
+                const endX = canvas.width - 50;
+                const endY = canvas.height - 50;
+                const height = -200; // 抛物线高度（负值表示向上）
+                const steps = 50;
+                
+                log('physics-log', `测试抛物线: 起点(${startX}, ${startY}), 终点(${endX}, ${endY}), 高度=${height}`);
+                
+                const path = calculateParabolicPath(
+                    {x: startX, y: startY},
+                    {x: endX, y: endY},
+                    height,
+                    steps
+                );
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制起点和终点
+                ctx.fillStyle = 'green';
+                ctx.beginPath();
+                ctx.arc(startX, startY, 5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(endX, endY, 5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 绘制路径
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(path[i].x, path[i].y);
+                }
+                ctx.stroke();
+            });
+            
+            document.getElementById('test-collision-btn').addEventListener('click', () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 创建两个矩形
+                const rect1 = {
+                    x: canvas.width / 4,
+                    y: canvas.height / 3,
+                    width: 80,
+                    height: 50
+                };
+                
+                const rect2 = {
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    width: 70,
+                    height: 60
+                };
+                
+                // 检测碰撞
+                const collision = rectanglesIntersect(
+                    rect1.x - rect1.width/2, rect1.y - rect1.height/2, rect1.width, rect1.height,
+                    rect2.x - rect2.width/2, rect2.y - rect2.height/2, rect2.width, rect2.height
+                );
+                
+                log('physics-log', `碰撞测试: ${collision ? '碰撞' : '未碰撞'}`);
+                
+                // 绘制矩形
+                ctx.fillStyle = collision ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 255, 0, 0.5)';
+                ctx.fillRect(rect1.x - rect1.width/2, rect1.y - rect1.height/2, rect1.width, rect1.height);
+                ctx.fillRect(rect2.x - rect2.width/2, rect2.y - rect2.height/2, rect2.width, rect2.height);
+            });
+            
+            log('physics-log', '物理测试初始化完成');
+        })();
+        
+        // 音频测试
+        (function() {
+            try {
+                const audio = new Audio();
+                
+                document.getElementById('test-jump-sound-btn').addEventListener('click', () => {
+                    audio.playSound('jump');
+                    log('audio-log', '播放跳跃音效');
+                });
+                
+                document.getElementById('test-land-sound-btn').addEventListener('click', () => {
+                    audio.playSound('land');
+                    log('audio-log', '播放落地音效');
+                });
+                
+                document.getElementById('test-game-over-sound-btn').addEventListener('click', () => {
+                    audio.playSound('gameover');
+                    log('audio-log', '播放游戏结束音效');
+                });
+                
+                document.getElementById('test-music-btn').addEventListener('click', () => {
+                    audio.playBackgroundMusic();
+                    log('audio-log', '播放背景音乐');
+                });
+                
+                log('audio-log', '音频测试初始化完成');
+            } catch (e) {
+                log('audio-log', `音频初始化失败: ${e.message}`);
+            }
+        })();
+        
+        // UI测试
+        (function() {
+            // 列出所有UI元素
+            const uiElements = [
+                'start-screen', 'game-screen', 'game-over-screen', 
+                'ranking-screen', 'settings-screen', 'pause-menu',
+                'start-btn', 'ranking-btn', 'settings-btn',
+                'pause-btn', 'resume-btn', 'restart-btn', 'home-btn'
+            ];
+            
+            const elementsInfo = uiElements.map(id => {
+                const element = document.getElementById(id);
+                return `${id}: ${element ? '存在' : '缺失'}`;
+            }).join('\n');
+            
+            document.getElementById('ui-elements').textContent = elementsInfo;
+            
+            // 创建UI测试函数
+            function createUITest() {
+                try {
+                    // 创建一个伪游戏对象
+                    const mockGame = {
+                        startGame: () => log('ui-log', '游戏开始方法被调用'),
+                        pauseGame: () => log('ui-log', '游戏暂停方法被调用'),
+                        resumeGame: () => log('ui-log', '游戏恢复方法被调用'),
+                        resetGame: () => log('ui-log', '游戏重置方法被调用'),
+                        audio: {
+                            setSoundEnabled: (enabled) => log('ui-log', `音效 ${enabled ? '启用' : '禁用'}`),
+                            setMusicEnabled: (enabled) => log('ui-log', `音乐 ${enabled ? '启用' : '禁用'}`),
+                        }
+                    };
+                    
+                    // 创建UI类的实例
+                    const ui = new UI(mockGame);
+                    
+                    document.getElementById('test-start-screen-btn').addEventListener('click', () => {
+                        ui.showScreen('start-screen');
+                        log('ui-log', '显示开始屏幕');
+                    });
+                    
+                    document.getElementById('test-game-screen-btn').addEventListener('click', () => {
+                        ui.showScreen('game-screen');
+                        log('ui-log', '显示游戏屏幕');
+                    });
+                    
+                    document.getElementById('test-game-over-screen-btn').addEventListener('click', () => {
+                        ui.showGameOver(100, 200);
+                        log('ui-log', '显示游戏结束屏幕');
+                    });
+                    
+                    document.getElementById('test-ranking-screen-btn').addEventListener('click', () => {
+                        ui.showRanking();
+                        ui.showScreen('ranking-screen');
+                        log('ui-log', '显示排行榜屏幕');
+                    });
+                    
+                    document.getElementById('test-settings-screen-btn').addEventListener('click', () => {
+                        ui.showScreen('settings-screen');
+                        log('ui-log', '显示设置屏幕');
+                    });
+                    
+                    document.getElementById('test-pause-menu-btn').addEventListener('click', () => {
+                        ui.showScreen('pause-menu');
+                        log('ui-log', '显示暂停菜单');
+                    });
+                    
+                    log('ui-log', 'UI测试初始化完成');
+                    return ui;
+                } catch (e) {
+                    log('ui-log', `UI测试初始化失败: ${e.message}`);
+                    return null;
+                }
+            }
+            
+            createUITest();
+        })();
+    </script>
+</body>
+</html> 

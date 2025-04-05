@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>跳一跳 - Web版</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        // 添加页面加载日志
+        console.log('HTML文档开始加载');
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM内容已加载完成');
+            // 检查关键元素是否存在
+            const elements = [
+                'start-screen', 'game-screen', 'game-over-screen', 
+                'ranking-screen', 'settings-screen', 'pause-menu',
+                'start-btn', 'game-canvas'
+            ];
+            
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                console.log(`元素 ${id} ${element ? '存在' : '不存在!'}`);
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="game-container">
+        <!-- 开始界面 -->
+        <div id="start-screen" class="screen active">
+            <h1 class="game-title">跳一跳</h1>
+            <div class="menu">
+                <button id="start-btn" class="btn" onclick="console.log('开始按钮被点击')">开始游戏</button>
+                <button id="ranking-btn" class="btn">排行榜</button>
+                <button id="settings-btn" class="btn">设置</button>
+            </div>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="score-container">
+                    <span class="score-label">分数:</span>
+                    <span id="current-score">0</span>
+                </div>
+                <div class="best-score-container">
+                    <span class="best-score-label">最高分:</span>
+                    <span id="best-score">0</span>
+                </div>
+                <button id="pause-btn" class="icon-btn">||</button>
+            </div>
+            
+            <div id="game-canvas-container">
+                <canvas id="game-canvas"></canvas>
+                <div id="power-bar-container">
+                    <div id="power-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏结束界面 -->
+        <div id="game-over-screen" class="screen">
+            <h2>游戏结束</h2>
+            <div class="score-display">
+                <div class="final-score">
+                    <span class="score-label">得分:</span>
+                    <span id="final-score">0</span>
+                </div>
+                <div class="best-score">
+                    <span class="best-score-label">最高分:</span>
+                    <span id="best-score-final">0</span>
+                </div>
+            </div>
+            <div class="menu">
+                <button id="restart-btn" class="btn">重新开始</button>
+                <button id="home-btn" class="btn">返回主菜单</button>
+            </div>
+        </div>
+
+        <!-- 排行榜界面 -->
+        <div id="ranking-screen" class="screen">
+            <h2>排行榜</h2>
+            <div id="ranking-list">
+                <!-- 排行榜内容将由JS动态填充 -->
+            </div>
+            <button id="ranking-back-btn" class="btn">返回</button>
+        </div>
+
+        <!-- 设置界面 -->
+        <div id="settings-screen" class="screen">
+            <h2>设置</h2>
+            <div class="settings-options">
+                <div class="setting-item">
+                    <span>音效</span>
+                    <label class="switch">
+                        <input type="checkbox" id="sound-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <span>背景音乐</span>
+                    <label class="switch">
+                        <input type="checkbox" id="music-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            <button id="settings-back-btn" class="btn">返回</button>
+        </div>
+
+        <!-- 暂停菜单 -->
+        <div id="pause-menu" class="screen">
+            <h2>游戏暂停</h2>
+            <div class="menu">
+                <button id="resume-btn" class="btn">继续游戏</button>
+                <button id="restart-from-pause-btn" class="btn">重新开始</button>
+                <button id="home-from-pause-btn" class="btn">返回主菜单</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 游戏相关的JavaScript文件 -->
+    <script src="js/physics.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/platform.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/game.js"></script>
+    <script>
+        // 页面加载完成后确保初始化游戏
+        window.addEventListener('load', function() {
+            console.log('所有资源加载完成，确保游戏初始化');
+            
+            // 检查是否已经初始化游戏
+            if (!window.jumpGame) {
+                console.log('创建游戏实例并初始化');
+                window.jumpGame = new Game();
+                window.jumpGame.init();
+                
+                // 测试直接绑定事件
+                const startBtn = document.getElementById('start-btn');
+                if (startBtn) {
+                    console.log('手动添加开始按钮事件');
+                    startBtn.addEventListener('click', function() {
+                        console.log('手动绑定的开始游戏点击事件触发');
+                        if (window.jumpGame) {
+                            window.jumpGame.startGame();
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
